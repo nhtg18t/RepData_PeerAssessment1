@@ -1,0 +1,144 @@
+---
+output: html_document
+---
+Peer Assignment 1 
+========================================
+##This is the first section of the assignment ##
+
+```{r, echo=TRUE}
+library(dplyr)
+# Read the dataset, and transform appropriately for the purpose of this assignment.
+
+activity.data<-read.csv("activity.csv")
+activity.data$date<-as.Date(activity.data$date,"%Y-%m-%d")
+activity.data$interval<-as.factor(activity.data$interval)
+
+# Now for the first part of the assignment, with ignoring the "NAs", clean the dataset
+clean.data<-activity.data[complete.cases(activity.data[,1]),]
+
+#Summarize the Total Steps, and do a quick dump of the rows to check sanity of the results.
+total.by.date <- summarise(group_by(clean.data,date),sum(steps))
+colnames(total.by.date)<-c("Date", "Total_Steps")
+head(total.by.date)
+
+# Plot the Histogram of the Total Steps
+hist(total.by.date$Total_Steps,col="blue",xlab="Total Steps", main= "Histogram of Total Steps")
+
+# Now Compute the Mean and Median of the clean data set
+overall.mean <- round(mean(total.by.date$Total_Steps), digits=2)
+overall.median <- round(median(total.by.date$Total_Steps), digits=2)
+
+
+
+```
+
+
+The overall **mean** of the data is **`r overall.mean`** and the overall **median** of the data is **`r overall.median`**
+
+## Second Section of the Assignment - Time Series Plots ##
+``` {r,echo = TRUE}
+#Summarize the Total Steps, now by interval of steps, and do a quick dump of the rows to check sanity of the results.
+Mean.by.interval <- summarise(group_by(clean.data,interval),mean(steps))
+colnames(Mean.by.interval)<-c("Interval", "Average_Steps")
+head(Mean.by.interval)
+tail(Mean.by.interval)
+# Now Plot the time series plot
+plot(as.numeric(as.character(Mean.by.interval$Interval)), Mean.by.interval$Average_Steps,col="red", lwd=2,type="l", main="Average # of Steps by Interval",xlab="Interval", ylab="Average Steps")
+Max_Mean<-Mean.by.interval[which.max(Mean.by.interval$Average_Steps),]
+```
+
+
+The Interval with the maximum value is **`r Max_Mean[1]`** and the corresponding value is  **`r Max_Mean[2]`**
+
+``` {r,echo = TRUE}
+
+# Let us check the similar plot for Median : Not required for the assignment, however !!!
+Median.by.interval <- summarise(group_by(clean.data,interval),median(steps))
+colnames(Median.by.interval)<-c("Interval", "Median_Steps")
+head(Median.by.interval)
+
+# Now Plot the time series plot
+plot(as.numeric(as.character(Median.by.interval$Interval)), Median.by.interval$Median_Steps,col="red", lwd=2,type="l", main="Median of # of Steps by Interval",xlab="Interval", ylab="Median")
+Max_Median<-Median.by.interval[which.max(Median.by.interval$Median_Steps),]
+
+```
+
+The Interval with the maximum value is **`r Max_Median[1]`** and the corresponding value is  **`r Max_Median[2]`**
+
+
+## Third Section of the Assignment - Code for inputting the Missing Values - No Graphical output Needed ##
+In this section, the missing values are filled by the median of the corresponding interval. For example if data is missing for an interval = 5, then that value is filled by the median for the interval =5 from all the days.
+
+``` {r,echo = TRUE}
+
+# Use the Median of each interval to fill the data of steps for the missing value across the board.
+#Median.by.interval <- summarise(group_by(clean.data,interval),median(steps))
+
+na.count<- 0
+i<- 1
+while ( i <= nrow(activity.data)) {
+      if(is.na(activity.data[i,1])){
+# Now for all the na values of steps, replace with the median of the corresponding interval.              
+            na.count<- na.count + 1
+            activity.interval<-as.integer(activity.data[i,3])
+            j<- 1
+            while( j <= nrow(Median.by.interval)){
+                  median.interval<- as.integer(Median.by.interval[j,1])
+                  if(activity.interval == median.interval){
+                        activity.data[i,1]<-Median.by.interval[j,2]
+                  }
+                  j<- j + 1
+            }
+            
+      }
+      i <- i + 1
+      
+}
+  
+
+#Summarize the Total Steps, and do a quick dump of the rows to check sanity of the results.
+Full.by.date <- summarise(group_by(activity.data,date),sum(steps))
+colnames(Full.by.date)<-c("Date", "Total_Steps")
+
+# Plot the Histogram of the Total Steps
+hist(Full.by.date$Total_Steps,col="cyan",xlab="Total Steps", main= "Histogram of Total Steps - Imputed Data")
+
+# Now Compute the Mean and Median of the clean data set
+Full.mean <- round(mean(Full.by.date$Total_Steps), digits=2)
+Full.median <- round(median(Full.by.date$Total_Steps),digits=2)
+
+
+```
+
+
+### *The Mean and Median with N/A removed is* (This is the same as the one reported previously) ###
+The **mean** of the data is **`r overall.mean`** and the **median** of the data is **`r overall.median`**
+
+### *Whereas for the Imputed dataset* ###
+The **mean** of the imputed data is **`r Full.mean`** and the **median** of the imputed data is **`r Full.median`**
+
+
+## Fourth Section of the Assignment - Adding weekdays and plotting the results for weekdays and weekends ##
+
+``` {r, echo=TRUE}
+# Create a vector of Weekdays
+day.vec<-factor(weekdays(activity.data$date,abbreviate=TRUE)%in% c("Sat","Sun"),levels=c(TRUE,FALSE),labels=c("Weekend","Weekday"))
+activity.data[,"Day"]<-day.vec
+#head(activity.data)
+# Now that a factor of the weekday and weekend is created
+#Summarize the Total Steps, now by interval of steps, and do a quick dump of the rows to check sanity of the results.
+Mean.by.Day <- summarise(group_by(activity.data,interval,Day),mean(steps))
+colnames(Mean.by.Day)<-c("Interval","Day", "Average_Steps")
+head(Mean.by.Day)
+
+# Now Plot the time series plot
+library(ggplot2)
+ggplot(Mean.by.Day, aes(x=as.numeric(as.character(Interval)),y=Average_Steps))+ 
+      geom_line(color="orange") +
+      facet_wrap(~Day,nrow=2,ncol=1)+
+      labs(x="Interval",y="Number of Steps")+
+      ggtitle("Weekend and Weekday - Activity Time series")
+
+```
+
+From the above plot, the weekend and weekday activities are different.
